@@ -127,7 +127,6 @@ bool ReadOneReview() {
 
 
 int main() {
-	cerr << "Hello World!" << endl;
 	// Read input.
 	while (true) {
 		if (!ReadOneReview()) {
