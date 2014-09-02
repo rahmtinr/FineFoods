@@ -148,8 +148,8 @@ int main() {
 						  reviews[i].time.year*100 + reviews[i].time.month);
 		item_count_per_month[product_id_time_range]++;
 	}
-	ofstream overall_outputs_monthly_accumulated_out("Output/overall_monthly_accumulated.txt");
-	ofstream overall_outputs_yearly_out("Output/overall_yearly.txt");
+	ofstream overall_outputs_monthly_accumulated_out("../Output_FineFoods/overall_monthly_accumulated.txt");
+	ofstream overall_outputs_yearly_out("../Output_FineFoods/overall_yearly.txt");
 	for (int i = 0; i < 12; i++) { 
 		overall_outputs_monthly_accumulated_out << month[i] << " " << overall_count_month[i] << endl;
 	}
@@ -165,8 +165,8 @@ int main() {
 		if (current == item_count_per_year.begin() || 
 		    before->first.first != current->first.first) {
 			fout.close();
-			fout.open(("Output/PerItem/" + current->first.first + "_yearly.txt").c_str(),std::ofstream::out);
-			fout << current ->first.first << endl;
+			fout.open(("../Output_FineFoods/PerItem/" + current->first.first + "_yearly.txt").c_str(),std::ofstream::out);
+		//	fout << current ->first.first << endl;
 		}
 		fout << current->first.second << " " << current->second <<endl;
 		before = current;
@@ -177,8 +177,8 @@ int main() {
 		if (current == item_count_per_year.begin() ||
 		    before->first.first != current->first.first) {
 			fout.close();
-			fout.open(("Output/PerItem/" + current->first.first + "_monthly.txt").c_str(),std::ofstream::out);
-			fout << current ->first.first << endl;
+			fout.open(("../Output_FineFoods/PerItem/" + current->first.first + "_monthly.txt").c_str(),std::ofstream::out);
+		//	fout << current ->first.first << endl;
 		}
 		fout << month[current->first.second%100] << "/" <<
 			current->first.second/100 << " " << current->second <<endl;
@@ -187,7 +187,7 @@ int main() {
 
 	// Top products.
 	Product product;
-	ofstream top_products_out("Output/top_products.txt");
+	ofstream top_products_out("../Output_FineFoods/top_products.txt");
 	for (map<string, int>::iterator it = product_count.begin(); it!=product_count.end(); it++) {
 		product.product_id = it->first;
 		product.count = it->second;
