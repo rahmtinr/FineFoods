@@ -9,6 +9,7 @@
 #include<map>
 #include<cstring>
 #include<cmath>
+#include<sstream>
 
 #define FAIL false
 #define SUCCESS true
@@ -77,6 +78,16 @@ public:
 	}
 };
 
+class VoteRatio {
+public:
+	int helpful;
+	int all;
+	VoteRatio() {
+		helpful =0;
+		all = 0;
+	}
+};
+
 vector<Review> reviews; 
 vector<Product> products;
 // Number of fine food items purchased from Amazon is different years and months of years
@@ -88,8 +99,14 @@ int overall_count_year[2020];
 // map from (product_id, time range) -> count
 map<pair<string, int>, int> item_count_per_year, item_count_per_month;
 
-// map from user_id to the number of reviews they have
+// Map from user_id to the number of reviews they have
 map<string, int> count_review_per_user;
+
+// Map from the length of video to the average of helpfulness for reviews which have video
+map<int, double> length_to_rating;
+// Assuming 30 min is the longest video
+VoteRatio video_votes[60*30+10], helpful_video_votes[60*30+10];
+
 string GetField(string raw_input) {
 	int delimeter = raw_input.find(":");
 	if (delimeter == std::string::npos) {
@@ -202,7 +219,7 @@ void PerItemPerYear() {
 
 // Outputs the top size_of_list products that have been reviewed more than others.
 void TopProducts(int size_of_list) {
-	for (int i = 0; i < reviews.size(); i++) {
+	for (int i = 0; i <(int) reviews.size(); i++) {
 		product_count[reviews[i].product_id]++;
 	}
 	Product product;
@@ -223,6 +240,43 @@ void TopProducts(int size_of_list) {
 	}
 }
 
+
+void ReviewsWithVideo() {
+	VoteRatio video_ratio, data_ratio;
+	int length_of_video, minute, second;
+	int max_length = 0;
+	const int time_bucket = 20;
+	for (int i = 0; i < (int)reviews.size(); i++) {
+		stringstream ss(reviews[i].helpfulness);
+		int numerator, denominator;
+		char ch;
+		ss>> numerator >> ch >> denominator;
+		data_ratio.helpful += numerator;
+		data_ratio.all += denominator;
+		if (reviews[i].text.find("Length::") != string::npos) {
+			video_ratio.helpful += numerator;
+			video_ratio.all += denominator;
+			int position = reviews[i].text.find("Length::");
+			string has_the_length = reviews[i].text.substr(position+8);
+			stringstream get_length(has_the_length);
+			get_length >> minute >> ch >> second;
+			length_of_video = minute * 60 + second;
+			video_votes[length_of_video/time_bucket].helpful += numerator;
+			video_votes[length_of_video/time_bucket].all += denominator;
+			max_length = max(max_length, length_of_video);
+		}
+	}
+	ofstream video_correlation_to_helpfulness("../Output_FineFoods/video_correlation_to_helpfulness.out");
+	video_correlation_to_helpfulness << (double)data_ratio.helpful / data_ratio.all << " " <<
+			(double)video_ratio.helpful / video_ratio.all << endl;
+	ofstream video_length_correlation_to_helpfulness(
+			"../Output_FineFoods/video_correlation_to_helpfulness.txt");
+	for (int i = 0; i < 30 ; i++) {
+		video_length_correlation_to_helpfulness << "[" << i*20 <<"," << i*20+20 <<"]" << " " <<
+				(double)video_votes[i].helpful / video_votes[i].all <<endl;
+	}
+}
+
 int main() {
 	// Read input.
 	while (true) {
@@ -231,6 +285,7 @@ int main() {
 		}
 	}
 
+	/*
 	CountMonthlyAccumulatedReviews();
 	CountYearlyReviews();
 
@@ -240,6 +295,10 @@ int main() {
 	// Top products.
 	int size_of_list = 10;
 	TopProducts(size_of_list);
+	 */
+
+	// Video Average vs All average.
+	ReviewsWithVideo();
 
 	return 0;
 }
