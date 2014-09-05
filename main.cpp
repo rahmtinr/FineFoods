@@ -105,7 +105,7 @@ map<string, int> count_review_per_user;
 // Map from the length of video to the average of helpfulness for reviews which have video
 map<int, double> length_to_rating;
 // Assuming 30 min is the longest video
-VoteRatio video_votes[60*30+10], helpful_video_votes[60*30+10];
+vector<double> video_votes[60*10+10], helpful_video_votes[60*10+10];
 
 string GetField(string raw_input) {
 	int delimeter = raw_input.find(":");
@@ -114,7 +114,6 @@ string GetField(string raw_input) {
 	}
 	return raw_input.substr(delimeter+2);
 }
-
 
 bool ReadOneReview() {
 	string raw_input;
@@ -240,40 +239,127 @@ void TopProducts(int size_of_list) {
 	}
 }
 
+double FindAverage(vector<double> *data) {
+	if (data->size() == 0) {
+		return 0;
+	}
+	double average = 0;
+	for (int i = 0; i < (int)data->size(); i++) {
+		average += (*data)[i];
+	}
+	return average / data->size();
+}
 
+double FindError(vector<double> *data, double average) {
+	if (data->size() == 0) {
+		return 0;
+	}
+	double error = 0;
+	for (int i = 0; i < (int)data->size(); i++) {
+		error += ((*data)[i]-average) * ((*data)[i]-average);
+	}
+	error /= data->size();
+	return sqrt(error);
+}
+
+// All the data that is analyzed have at least one vote.
 void ReviewsWithVideo() {
-	VoteRatio video_ratio, data_ratio;
+	double video_ratio = 0, data_ratio = 0;
+	double video_average, data_average;
+	double video_error = 0, data_error = 0;
 	int length_of_video, minute, second;
-	int max_length = 0;
-	const int time_bucket = 20;
+	const int time_bucket = 60;
+	int number_of_videos = 0;
+
 	for (int i = 0; i < (int)reviews.size(); i++) {
 		stringstream ss(reviews[i].helpfulness);
 		int numerator, denominator;
 		char ch;
 		ss>> numerator >> ch >> denominator;
-		data_ratio.helpful += numerator;
-		data_ratio.all += denominator;
+		if (denominator == 0) {
+			continue;
+		}
+		data_ratio += (double)numerator / denominator;
 		if (reviews[i].text.find("Length::") != string::npos) {
-			video_ratio.helpful += numerator;
-			video_ratio.all += denominator;
+			video_ratio += (double)numerator / denominator;
+			number_of_videos++;
 			int position = reviews[i].text.find("Length::");
 			string has_the_length = reviews[i].text.substr(position+8);
 			stringstream get_length(has_the_length);
 			get_length >> minute >> ch >> second;
 			length_of_video = minute * 60 + second;
-			video_votes[length_of_video/time_bucket].helpful += numerator;
-			video_votes[length_of_video/time_bucket].all += denominator;
-			max_length = max(max_length, length_of_video);
+			video_votes[length_of_video / time_bucket].push_back((double)numerator / denominator);
 		}
 	}
+	data_average = data_ratio / reviews.size();
+	video_average = video_ratio / number_of_videos;
+	for (int i = 0; i < (int)reviews.size(); i++) {
+		stringstream ss(reviews[i].helpfulness);
+		int numerator, denominator;
+		char ch;
+		ss>> numerator >> ch >> denominator;
+		if (denominator == 0) {
+			continue;
+		}
+		data_error += ((double)numerator / denominator - data_average) * ((double)numerator / denominator - data_average);
+		if (reviews[i].text.find("Length::") != string::npos) {
+			video_error += ((double)numerator / denominator - video_average) * ((double)numerator / denominator - video_average);
+		}
+	}
+	data_error /= reviews.size();
+	video_error /= number_of_videos;
+
 	ofstream video_correlation_to_helpfulness("../Output_FineFoods/video_correlation_to_helpfulness.out");
-	video_correlation_to_helpfulness << (double)data_ratio.helpful / data_ratio.all << " " <<
-			(double)video_ratio.helpful / video_ratio.all << endl;
+	video_correlation_to_helpfulness << "Number of videos " << number_of_videos << endl;
+	video_correlation_to_helpfulness << "Average of video and data: " << video_average << " " << data_average <<endl;
+	video_correlation_to_helpfulness << "Error of video and data: " << video_error << " " << data_error <<endl;
+
 	ofstream video_length_correlation_to_helpfulness(
-			"../Output_FineFoods/video_correlation_to_helpfulness.txt");
-	for (int i = 0; i < 30 ; i++) {
-		video_length_correlation_to_helpfulness << "[" << i*20 <<"," << i*20+20 <<"]" << " " <<
-				(double)video_votes[i].helpful / video_votes[i].all <<endl;
+			"../Output_FineFoods/video_correlation_to_helpfulness_has_error.txt");
+	for (int i = 0; i < 600/time_bucket ; i++) {
+		double average, error;
+		average = FindAverage(&video_votes[i]);
+		error = FindError(&video_votes[i], average);
+		video_length_correlation_to_helpfulness << "[" << i*60 << "," << i*60+60 << "] " << average << " " << error <<endl;
+	}
+}
+
+// Number of reviews written in different months.
+// The number for a month is accumulated over all the years.
+void StarAveragePerMonth() {
+	vector<double> star_rating[12];
+	double average;
+	double error;
+	for (int i = 0; i < (int)reviews.size(); i++) {
+		stringstream ss(reviews[i].score);
+		double score;
+		ss >> score;
+		star_rating[reviews[i].time.month].push_back(score);
+	}
+	ofstream overall_outputs_monthly_accumulated_out_star_rating("../Output_FineFoods/overall_monthly_accumulated_star_rating_has_error.txt");
+	for (int i = 0; i < 12; i++) {
+		average = FindAverage(&star_rating[i]);
+		error = FindError(&star_rating[i], average);
+		overall_outputs_monthly_accumulated_out_star_rating << month[i] << " " << average << " " << error << endl;
+	}
+}
+
+// Number of reviews written in different years.
+void StarAveragePerYear() {
+	vector<double> star_rating[30];
+	double average;
+	double error;
+	for (int i = 0; i < (int)reviews.size(); i++) {
+		stringstream ss(reviews[i].score);
+		double score;
+		ss >> score;
+		star_rating[reviews[i].time.year-1998].push_back(score);
+	}
+	ofstream overall_outputs_yearly_out_star_rating("../Output_FineFoods/overall_yearly_star_rating_has_error.txt");
+	for (int i = 1998; i < 2015; i++) {
+		average = FindAverage(&star_rating[i - 1998]);
+		error = FindError(&star_rating[i - 1998], average);
+		overall_outputs_yearly_out_star_rating << i << " " << average  << " " << error << endl;
 	}
 }
 
@@ -284,7 +370,6 @@ int main() {
 			break;
 		}
 	}
-
 	/*
 	CountMonthlyAccumulatedReviews();
 	CountYearlyReviews();
@@ -295,11 +380,13 @@ int main() {
 	// Top products.
 	int size_of_list = 10;
 	TopProducts(size_of_list);
-	 */
 
+	 */
 	// Video Average vs All average.
 	ReviewsWithVideo();
 
+	StarAveragePerMonth();
+	StarAveragePerYear();
 	return 0;
 }
 
