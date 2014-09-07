@@ -88,7 +88,7 @@ public:
 	}
 };
 
-vector<Review> reviews; 
+vector<Review> reviews, filter_reviews;
 vector<Product> products;
 // Number of fine food items purchased from Amazon is different years and months of years
 // Same months over different years are accumulated.
@@ -143,6 +143,18 @@ bool ReadOneReview() {
 		return SUCCESS;
 	}
 	return FAIL;
+}
+
+void MyFilter(string key, string value) {
+	filter_reviews.clear();
+	for ( int i = 0; i < (int)reviews.size(); i++){
+		if (key == "productId") {
+			if(reviews[i].product_id == value) {
+				filter_reviews.push_back(reviews[i]);
+			}
+		}
+	}
+	reviews = filter_reviews;
 }
 
 // Number of reviews written in different months.
@@ -258,6 +270,7 @@ double FindError(vector<double> *data, double average) {
 	for (int i = 0; i < (int)data->size(); i++) {
 		error += ((*data)[i]-average) * ((*data)[i]-average);
 	}
+
 	error /= data->size();
 	return sqrt(error);
 }
@@ -363,6 +376,24 @@ void StarAveragePerYear() {
 	}
 }
 
+void StarAveragePerTimeInTheDay() {
+	vector<double> star_rating[30];
+	double average;
+	double error;
+	for (int i = 0; i < (int)reviews.size(); i++) {
+		stringstream ss(reviews[i].score);
+		double score;
+		ss >> score;
+		star_rating[reviews[i].time.hour].push_back(score);
+	}
+	ofstream overall_outputs_hourly_accumulated_out_star_rating("../Output_FineFoods/overall_hourly_accumulated_star_rating_has_error.txt");
+	for (int i = 0; i < 24; i++) {
+		average = FindAverage(&star_rating[i]);
+		error = FindError(&star_rating[i], average);
+		overall_outputs_hourly_accumulated_out_star_rating << i << " " << average  << " " << error << endl;
+	}
+}
+
 int main() {
 	// Read input.
 	while (true) {
@@ -370,6 +401,7 @@ int main() {
 			break;
 		}
 	}
+	MyFilter("productId", "B0032JKWGI");
 	/*
 	CountMonthlyAccumulatedReviews();
 	CountYearlyReviews();
@@ -381,12 +413,13 @@ int main() {
 	int size_of_list = 10;
 	TopProducts(size_of_list);
 
-	 */
 	// Video Average vs All average.
 	ReviewsWithVideo();
-
+	*/
 	StarAveragePerMonth();
 	StarAveragePerYear();
+	// Time in Day is useless! The timestamp is on a daily basis
+	//StarAveragePerTimeInTheDay();
 	return 0;
 }
 
